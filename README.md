@@ -40,7 +40,7 @@ Future fetchComplexPage() async {
   complexPage.addDataObserver((response, extra) {
     print("handle response ${response}");
   });
-
+  /// No need to try catch
   final res = await complexPage.fetch(() async {
     return TestResponse(
       total: 99,
@@ -85,7 +85,6 @@ Future fetchData() async {
   store.addDataObserver((response, extra) {
     print("handle response ${response}");
   });
-  /// No need to try catch
   final res = await store.fetch(() async {
     return "1";
   });

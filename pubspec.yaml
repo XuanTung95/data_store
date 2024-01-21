@@ -1,4 +1,4 @@
-name: data_store
+name: api_data_store
 description: Provide a safe place to call API and handle errors. Support data observer and listener.
 version: 0.0.1
 homepage: https://github.com/XuanTung95/data_store.git

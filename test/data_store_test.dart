@@ -1,4 +1,4 @@
-import 'package:data_store/data_store.dart';
+import 'package:api_data_store/api_data_store.dart';
 import 'package:test/test.dart';
 
 void main() {
