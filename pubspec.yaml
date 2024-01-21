@@ -1,0 +1,13 @@
+name: data_store
+description: Provide a safe place to call API and handle errors. Support data observer and listener.
+version: 0.0.1
+homepage: https://github.com/XuanTung95/data_store.git
+
+environment:
+  sdk: ">=2.17.6 <3.0.0"
+
+dependencies:
+  future_interceptor: ^0.2.0
+
+dev_dependencies:
+  test:
