@@ -3,7 +3,6 @@ Provide a safe place to call API and handle errors. Support data observer and li
 ## Usage
 
 ```dart
-
 /// Create a class to manage error
 class MyErrorClass {
   final dynamic error;
@@ -15,7 +14,7 @@ class MyErrorClass {
   MyErrorClass({required this.error});
 }
 
-/// Specify how to convert from any exception to MyErrorClass 
+/// Specify how to convert from any exception to MyErrorClass
 MyErrorClass myErrorHandler(dynamic error) {
   return MyErrorClass(error: error);
 }
@@ -34,14 +33,14 @@ Future fetchComplexPage() async {
         return res.lastPage;
       }
   );
-  complexPage.addListener(() {
-    print("loading ${store.isLoading}");
+  complexPage.addStateChangeListener((state) {
+    print("loading ${state.isLoading}");
   });
-  complexPage.addDataObserver((response, extra) {
+  complexPage.addResponseListener((response) {
     print("handle response ${response}");
   });
   /// No need to try catch
-  final res = await complexPage.fetch(() async {
+  final state = await complexPage.fetch(() async {
     return TestResponse(
       total: 99,
       lastPage: true,
@@ -49,22 +48,15 @@ Future fetchComplexPage() async {
     );
   });
   print("""
-      Response:
-      error ${res.error}
-      data ${res.data} // return List
-      response ${res.response} // return TestResponse()
-      isSuccess ${res.isSuccess}
-      isSkipped ${res.isSkipped}
-      
       State:
-      all loaded data ${complexPage.data}
-      isLoading ${complexPage.isLoading}
-      current page ${complexPage.page}
-      pageSize ${complexPage.pageSize}
-      isLastPage ${complexPage.isLastPage}
-      initPage ${complexPage.initPage}
-      total item ${complexPage.total}
-      last error ${complexPage.error}
+      all loaded data ${state.data}
+      isLoading ${state.isLoading}
+      current page ${state.page}
+      pageSize ${state.pageSize}
+      isLastPage ${state.isLastPage}
+      initPage ${state.initPage}
+      total item ${state.total}
+      last error ${state.error}
   """);
 }
 
@@ -79,16 +71,21 @@ Future fetchSimplePage() async {
 /// Normal api call
 Future fetchData() async {
   final store = DataStore(errorHandler: myErrorHandler);
-  store.addListener(() {
-    print("loading ${store.isLoading}");
+  store.addStateChangeListener((state) {
+    print("loading ${state.isLoading}");
   });
-  store.addDataObserver((response, extra) {
-    print("handle response ${response}");
+  store.addErrorListener((error) {
+    print("handle error ${error}");
   });
-  final res = await store.fetch(() async {
+  final state = await store.fetch(() async {
     return "1";
   });
-  print("data ${res.data}");
+  print("""
+      State:
+      data ${state.data}
+      isLoading ${state.isLoading}
+      last error ${state.error}
+  """);
 }
 
 class TestResponse {

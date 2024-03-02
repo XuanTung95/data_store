@@ -10,114 +10,131 @@ void main() {
     store = DataStore(errorHandler: globalErrorHandler);
     page = DataPage(errorHandler: globalErrorHandler);
     pageBase = DataPageBase(
-      errorHandler: globalErrorHandler,
-      handleResult: (res) {
-        return res.data;
-      },
-      handleTotal: (res) {
-        return res.total;
-      },
-      handleLastPage: (res) {
-        return res.lastPage;
-      }
-    );
+        errorHandler: globalErrorHandler,
+        handleResult: (res) {
+          return res.data;
+        },
+        handleTotal: (res) {
+          return res.total;
+        },
+        handleLastPage: (res) {
+          return res.lastPage;
+        });
   });
 
   group('DataStore', () {
+    _clearListener() {
+      store.stateChangeListeners.clear();
+      store.errorListeners.clear();
+    }
+
     test('Success', () async {
-      store.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
       List<dynamic> data = [];
-      store.addListener(() {
+      List<TestApiError?> error2 = [];
+      store.addStateChangeListener((state) {
         count++;
-        loadState.add(store.loadState);
-        error.add(store.error);
-        data.add(store.data);
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.add(state.data);
+      });
+      store.addErrorListener((state) {
+        error2.add(state.error);
       });
       final res = await store.fetch(() async {
         return "1";
       });
       expect(res.data, "1");
       expect(res.error, null);
-      expect(res.isSkipped, false);
-      expect(res.isSuccess, true);
       expect(count, 2);
+      expect(error2.isEmpty, true);
       expect(listEqual(loadState, [LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, null]), true);
       expect(listEqual(data, [null, "1"]), true);
     });
 
     test('Error', () async {
-      store.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
+      List<dynamic> error2 = [];
       List<dynamic> data = [];
-      store.addListener(() {
+      store.addStateChangeListener((state) {
         count++;
-        loadState.add(store.loadState);
-        error.add(store.error);
-        data.add(store.data);
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.add(state.data);
+      });
+      store.addErrorListener((state) {
+        error2.add(state.error?.error);
       });
       final res = await store.fetch(() async {
         throw "error";
       });
       expect(res.data, null);
       expect(res.error?.error, "error");
-      expect(res.isSkipped, false);
-      expect(res.isSuccess, false);
       expect(count, 2);
       expect(listEqual(loadState, [LoadState.loading, LoadState.error]), true);
       expect(listEqual(error, [null, res.error]), true);
+      expect(listEqual(error2, ["error"]), true);
       expect(listEqual(data, [null, null]), true);
     });
 
     test('Reset', () async {
-      store.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
+      List<dynamic> error2 = [];
       List<dynamic> data = [];
-      store.addListener(() {
+      store.addStateChangeListener((state) {
         count++;
-        loadState.add(store.loadState);
-        error.add(store.error);
-        data.add(store.data);
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.add(state.data);
+      });
+      store.addErrorListener((state) {
+        error2.add(state.error?.error);
       });
       final f = store.fetch(() async {
         throw "error";
       });
       store.reset();
-      expect(store.data, null);
-      expect(store.loadState, LoadState.success);
-      expect(store.error, null);
+      expect(store.state.data, null);
+      expect(store.state.loadState, LoadState.success);
+      expect(store.state.error, null);
       final res = await f;
-      expect(store.data, null);
-      expect(store.loadState, LoadState.success);
-      expect(store.error, null);
+      expect(store.state.data, null);
+      expect(store.state.loadState, LoadState.success);
+      expect(store.state.error, null);
 
       expect(res.data, null);
       expect(res.error, null);
-      expect(res.isSkipped, true);
-      expect(res.isSuccess, false);
-      expect(count, 3);
-      expect(listEqual(error, [null, null, null]), true);
-      expect(listEqual(data, [null, null, null]), true);
+      expect(count, 2);
+      expect(listEqual(error2, []), true);
+      expect(listEqual(error, [null, null]), true);
+      expect(listEqual(data, [null, null]), true);
     });
 
     test('Reset Multiple request', () async {
-      store.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
+      List<dynamic> error2 = [];
       List<dynamic> data = [];
-      store.addListener(() {
+      store.addStateChangeListener((state) {
         count++;
-        loadState.add(store.loadState);
-        error.add(store.error);
-        data.add(store.data);
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.add(state.data);
+      });
+      store.addErrorListener((state) {
+        error2.add(state.error?.error);
       });
       final f = store.fetch(() async {
         await Future.delayed(Duration(milliseconds: 100));
@@ -132,28 +149,24 @@ void main() {
       final res = await f;
       final res2 = await f2;
 
-      expect(store.data, "2");
-      expect(store.loadState, LoadState.success);
-      expect(store.error, null);
+      expect(store.state.data, "2");
+      expect(store.state.loadState, LoadState.success);
+      expect(store.state.error, null);
 
       expect(res.data, null);
       expect(res.error, null);
-      expect(res.isSkipped, true);
-      expect(res.isSuccess, false);
 
       expect(res2.data, "2");
       expect(res2.error, null);
-      expect(res2.isSkipped, false);
-      expect(res2.isSuccess, true);
 
-      expect(count, 5);
-      expect(listEqual(error, [null, null, null, null, null]), true);
-      expect(listEqual(data, [null, null, null, null, "2"]), true);
+      expect(count, 4);
+      expect(listEqual(error, [null, null, null, null]), true);
+      expect(listEqual(error2, []), true);
+      expect(listEqual(data, [null, null, null, "2"]), true);
       expect(
           listEqual(loadState, [
             LoadState.loading,
             LoadState.success,
-            LoadState.loading,
             LoadState.loading,
             LoadState.success,
           ]),
@@ -162,193 +175,213 @@ void main() {
   });
 
   group('DataPage', () {
+    _clearListener() {
+      page.stateChangeListeners.clear();
+      page.errorListeners.clear();
+      page.responseListeners.clear();
+    }
+
     test('Success', () async {
-      page.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
+      List<dynamic> error2 = [];
       List<dynamic> data = [];
-      page.addListener(() {
+      List<dynamic> data2 = [];
+      page.addStateChangeListener((state) {
         count++;
-        loadState.add(page.loadState);
-        error.add(page.error);
-        data.addAll(page.data);
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.addAll(state.data);
+      });
+      page.addErrorListener((state) {
+        error2.add(state.error?.error);
+      });
+      page.addResponseListener((res) {
+        data2.add(res);
       });
       int ret = 1;
       final res = await page.fetch(() async {
         return ["${ret++}"];
       });
-      expect(listEqual(page.data, ["1"]), true);
-      expect(listEqual(res.data ?? [], ["1"]), true);
+      expect(listEqual(page.state.data, ["1"]), true);
+      expect(listEqual(res.data, ["1"]), true);
       expect(res.error, null);
-      expect(page.page, 1);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
-      expect(res.isSkipped, false);
-      expect(res.isSuccess, true);
+      expect(page.state.page, 1);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
       expect(count, 2);
       expect(listEqual(loadState, [LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, null]), true);
+      expect(listEqual(error2, []), true);
+      expect(data2.length, 1);
 
       final res2 = await page.fetch(() async {
         return ["${ret++}"];
       });
 
-      expect(listEqual(page.data, ["1", "2"]), true);
-      expect(listEqual(res2.response ?? [], ["2"]), true);
-      expect(listEqual(res2.data ?? [], ["1", "2"]), true);
+      expect(listEqual(page.state.data, ["1", "2"]), true);
+      expect(listEqual(res2.rawResponse ?? [], ["2"]), true);
+      expect(listEqual(res2.data, ["1", "2"]), true);
       expect(res2.error, null);
-      expect(page.page, 2);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
-      expect(res2.isSkipped, false);
-      expect(res2.isSuccess, true);
+      expect(page.state.page, 2);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
       expect(count, 4);
       expect(listEqual(loadState, [LoadState.loading, LoadState.success, LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, null, null, null]), true);
+      expect(listEqual(error2, []), true);
+      expect(data2.length, 2);
 
       final res3 = await page.fetch(() async {
         return [];
       });
 
-      expect(listEqual(page.data, ["1", "2"]), true);
-      expect(listEqual(res3.response ?? [], []), true);
-      expect(listEqual(res3.data ?? [], ["1", "2"]), true);
-      expect(page.isLoading, false);
+      expect(listEqual(page.state.data, ["1", "2"]), true);
+      expect(listEqual(res3.rawResponse ?? [], []), true);
+      expect(listEqual(res3.data, ["1", "2"]), true);
+      expect(page.state.isLoading, false);
       expect(res3.error, null);
-      expect(res3.isSkipped, false);
-      expect(res3.isSuccess, true);
-      expect(page.page, 3);
-      expect(page.total, 0);
-      expect(page.isLastPage, true);
+      expect(page.state.page, 3);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, true);
       expect(count, 6);
       expect(listEqual(loadState, [LoadState.loading, LoadState.success, LoadState.loading, LoadState.success, LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, null, null, null, null, null]), true);
+      expect(listEqual(error2, []), true);
+      expect(data2.length, 3);
     });
 
     test('Error', () async {
-      page.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<dynamic> error = [];
+      List<dynamic> error2 = [];
       List<dynamic> data = [];
-      page.addListener(() {
+      List<dynamic> data2 = [];
+      page.addStateChangeListener((state) {
         count++;
-        loadState.add(page.loadState);
-        error.add(page.error?.error);
-        data.addAll(page.data);
+        loadState.add(state.loadState);
+        error.add(state.error?.error);
+        data.addAll(state.data);
+      });
+      page.addErrorListener((state) {
+        error2.add(state.error?.error);
+      });
+      page.addResponseListener((res) {
+        data2.add(res);
       });
       int ret = 1;
       final res = await page.fetch(() async {
         throw "e";
       });
-      expect(listEqual(page.data, []), true);
-      expect(listEqual(res.data ?? [], []), true);
+      expect(listEqual(page.state.data, []), true);
+      expect(listEqual(res.data, []), true);
       expect(res.error?.error, "e");
-      expect(page.page, 0);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
-      expect(res.isSkipped, false);
-      expect(res.isSuccess, false);
+      expect(page.state.page, 0);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
       expect(count, 2);
       expect(listEqual(loadState, [LoadState.loading, LoadState.error]), true);
       expect(listEqual(error, [null, "e"]), true);
+      expect(listEqual(error2, ["e"]), true);
+      expect(listEqual(data2, []), true);
 
       final res2 = await page.fetch(() async {
         return ["${ret++}"];
       });
 
-      expect(listEqual(page.data, ["1"]), true);
-      expect(listEqual(res2.response ?? [], ["1"]), true);
-      expect(listEqual(res2.data ?? [], ["1"]), true);
+      expect(listEqual(page.state.data, ["1"]), true);
+      expect(listEqual(res2.rawResponse ?? [], ["1"]), true);
+      expect(listEqual(res2.data, ["1"]), true);
       expect(res2.error, null);
-      expect(page.page, 1);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
-      expect(res2.isSkipped, false);
-      expect(res2.isSuccess, true);
+      expect(page.state.page, 1);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
       expect(count, 4);
       expect(listEqual(loadState, [LoadState.loading, LoadState.error, LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, "e", "e", null]), true);
+      expect(listEqual(error2, ["e"]), true);
+      expect(data2.length, 1);
 
       final res3 = await page.fetch(() async {
         return [];
       });
 
-      expect(listEqual(page.data, ["1"]), true);
-      expect(listEqual(res3.response ?? [], []), true);
-      expect(listEqual(res3.data ?? [], ["1"]), true);
-      expect(page.isLoading, false);
+      expect(listEqual(page.state.data, ["1"]), true);
+      expect(listEqual(res3.rawResponse ?? [], []), true);
+      expect(listEqual(res3.data, ["1"]), true);
+      expect(page.state.isLoading, false);
       expect(res3.error, null);
-      expect(res3.isSkipped, false);
-      expect(res3.isSuccess, true);
-      expect(page.page, 2);
-      expect(page.total, 0);
-      expect(page.isLastPage, true);
+      expect(page.state.page, 2);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, true);
       expect(count, 6);
       expect(listEqual(loadState, [LoadState.loading, LoadState.error, LoadState.loading, LoadState.success, LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, "e", "e", null, null, null]), true);
+      expect(listEqual(error2, ["e"]), true);
+      expect(data2.length, 2);
     });
 
     test('Reset', () async {
-      page.listeners.clear();
+      _clearListener();
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
       List<dynamic> data = [];
-      page.addListener(() {
-        loadState.add(page.loadState);
-        error.add(page.error);
-        data.addAll(page.data);
+      page.addStateChangeListener((state) {
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.addAll(state.data);
       });
       int ret = 1;
       await page.fetch(() async {
         return ["${ret++}"];
       });
-      expect(listEqual(page.data, ["1"]), true);
+      expect(listEqual(page.state.data, ["1"]), true);
 
       page.reset();
-      expect(listEqual(page.data, []), true);
-      expect(page.page, 0);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
+      expect(listEqual(page.state.data, []), true);
+      expect(page.state.page, 0);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
 
       final res2 = await page.fetch(() async {
         return ["${ret++}"];
       });
 
-      expect(listEqual(page.data, ["2"]), true);
-      expect(listEqual(res2.response ?? [], ["2"]), true);
-      expect(listEqual(res2.data ?? [], ["2"]), true);
+      expect(listEqual(page.state.data, ["2"]), true);
+      expect(listEqual(res2.rawResponse ?? [], ["2"]), true);
+      expect(listEqual(res2.data, ["2"]), true);
       expect(res2.error, null);
-      expect(page.page, 1);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
-      expect(res2.isSkipped, false);
-      expect(res2.isSuccess, true);
+      expect(page.state.page, 1);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
     });
 
     test('Reset Multiple request', () async {
-      page.listeners.clear();
+      _clearListener();
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
       List<dynamic> data = [];
-      page.addListener(() {
-        loadState.add(page.loadState);
-        error.add(page.error);
-        data.addAll(page.data);
+      page.addStateChangeListener((state) {
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.addAll(state.data);
       });
       page.reset();
       int ret = 1;
       await page.fetch(() async {
         return ["${ret++}"];
       });
-      expect(listEqual(page.data, ["1"]), true);
+      expect(listEqual(page.state.data, ["1"]), true);
 
       page.reset();
-      expect(listEqual(page.data, []), true);
-      expect(page.page, 0);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
+      expect(listEqual(page.state.data, []), true);
+      expect(page.state.page, 0);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
 
       await page.fetch(() async {
         return ["${ret++}"];
@@ -357,31 +390,43 @@ void main() {
         return [];
       });
 
-      expect(listEqual(page.data, ["2"]), true);
-      expect(page.page, 2);
-      expect(page.total, 0);
-      expect(page.isLastPage, true);
+      expect(listEqual(page.state.data, ["2"]), true);
+      expect(page.state.page, 2);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, true);
 
       page.reset();
-      expect(listEqual(page.data, []), true);
-      expect(page.page, 0);
-      expect(page.total, 0);
-      expect(page.isLastPage, false);
+      expect(listEqual(page.state.data, []), true);
+      expect(page.state.page, 0);
+      expect(page.state.total, 0);
+      expect(page.state.isLastPage, false);
     });
   });
 
   group('DataPageBase', () {
+    _clearListener() {
+      pageBase.stateChangeListeners.clear();
+    }
+
     test('Success', () async {
-      pageBase.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<TestApiError?> error = [];
+      List<dynamic> error2 = [];
       List<String> data = [];
-      pageBase.addListener(() {
+      List<TestResponse> data2 = [];
+      pageBase.addStateChangeListener((state) {
         count++;
-        loadState.add(pageBase.loadState);
-        error.add(pageBase.error);
-        data.addAll(pageBase.data);
+        loadState.add(state.loadState);
+        error.add(state.error);
+        data.addAll(state.data);
+      });
+      pageBase.addErrorListener((state) {
+        error2.add(state.error?.error);
+      });
+      pageBase.addResponseListener((res) {
+        data2.add(res);
       });
       final res = await pageBase.fetch(() async {
         return TestResponse(
@@ -390,17 +435,17 @@ void main() {
           data: ["1", "2", "3"],
         );
       });
-      expect(listEqual(pageBase.data, ["1", "2", "3"]), true);
-      expect(listEqual(res.data ?? [], ["1", "2", "3"]), true);
+      expect(listEqual(pageBase.state.data, ["1", "2", "3"]), true);
+      expect(listEqual(res.data, ["1", "2", "3"]), true);
       expect(res.error, null);
-      expect(pageBase.page, 1);
-      expect(pageBase.total, 99);
-      expect(pageBase.isLastPage, true);
-      expect(res.isSkipped, false);
-      expect(res.isSuccess, true);
+      expect(pageBase.state.page, 1);
+      expect(pageBase.state.total, 99);
+      expect(pageBase.state.isLastPage, true);
       expect(count, 2);
       expect(listEqual(loadState, [LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, null]), true);
+      expect(listEqual(error2, []), true);
+      expect(data2.length, 1);
       loadState.clear();
       error.clear();
 
@@ -412,18 +457,36 @@ void main() {
         );
       });
 
-      expect(listEqual(pageBase.data, ["1", "2", "3", "4", "5", "6",]), true);
-      expect(listEqual(res2.response?.data ?? [], ["4", "5", "6"]), true);
-      expect(listEqual(res2.data ?? [], ["1", "2", "3", "4", "5", "6",]), true);
+      expect(
+          listEqual(pageBase.state.data, [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+          ]),
+          true);
+      expect(listEqual(res2.rawResponse?.data ?? [], ["4", "5", "6"]), true);
+      expect(
+          listEqual(res2.data, [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+          ]),
+          true);
       expect(res2.error, null);
-      expect(pageBase.page, 2);
-      expect(pageBase.total, 88);
-      expect(pageBase.isLastPage, false);
-      expect(res2.isSkipped, false);
-      expect(res2.isSuccess, true);
+      expect(pageBase.state.page, 2);
+      expect(pageBase.state.total, 88);
+      expect(pageBase.state.isLastPage, false);
       expect(count, 4);
       expect(listEqual(loadState, [LoadState.loading, LoadState.success]), true);
       expect(listEqual(error, [null, null]), true);
+      expect(listEqual(error2, []), true);
+      expect(data2.length, 2);
 
       final res3 = await pageBase.fetch(() async {
         return TestResponse(
@@ -433,30 +496,56 @@ void main() {
         );
       });
 
-      expect(listEqual(pageBase.data, ["1", "2", "3", "4", "5", "6",]), true);
-      expect(listEqual(res3.response?.data ?? [], []), true);
-      expect(listEqual(res3.data ?? [], ["1", "2", "3", "4", "5", "6",]), true);
-      expect(pageBase.isLoading, false);
+      expect(
+          listEqual(pageBase.state.data, [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+          ]),
+          true);
+      expect(listEqual(res3.rawResponse?.data ?? [], []), true);
+      expect(
+          listEqual(res3.data, [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+          ]),
+          true);
+      expect(pageBase.state.isLoading, false);
       expect(res3.error, null);
-      expect(res3.isSkipped, false);
-      expect(res3.isSuccess, true);
-      expect(pageBase.page, 3);
-      expect(pageBase.total, 69);
-      expect(pageBase.isLastPage, true);
+      expect(pageBase.state.page, 3);
+      expect(pageBase.state.total, 69);
+      expect(pageBase.state.isLastPage, true);
       expect(count, 6);
+      expect(listEqual(error2, []), true);
+      expect(data2.length, 3);
     });
 
     test('Error', () async {
-      pageBase.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<dynamic> error = [];
+      List<dynamic> error2 = [];
       List<String> data = [];
-      pageBase.addListener(() {
+      List<TestResponse> data2 = [];
+      pageBase.addStateChangeListener((state) {
         count++;
-        loadState.add(pageBase.loadState);
-        error.add(pageBase.error?.error);
-        data.addAll(pageBase.data);
+        loadState.add(state.loadState);
+        error.add(state.error?.error);
+        data.addAll(state.data);
+      });
+      pageBase.addErrorListener((state) {
+        error2.add(state.error?.error);
+      });
+      pageBase.addResponseListener((res) {
+        data2.add(res);
       });
       final res = await pageBase.fetch(() async {
         return TestResponse(
@@ -465,11 +554,13 @@ void main() {
           data: ["1", "2", "3"],
         );
       });
-      expect(listEqual(pageBase.data, ["1", "2", "3"]), true);
+      expect(listEqual(pageBase.state.data, ["1", "2", "3"]), true);
       expect(res.error, null);
-      expect(pageBase.page, 1);
-      expect(pageBase.total, 99);
-      expect(pageBase.isLastPage, true);
+      expect(pageBase.state.page, 1);
+      expect(pageBase.state.total, 99);
+      expect(pageBase.state.isLastPage, true);
+      expect(error2.isEmpty, true);
+      expect(data2.length, 1);
       loadState.clear();
       error.clear();
 
@@ -477,20 +568,20 @@ void main() {
         throw "myError";
       });
 
-      expect(listEqual(pageBase.data, ["1", "2", "3"]), true);
-      expect(listEqual(res2.response?.data ?? [], []), true);
-      expect(listEqual(res2.data ?? [], []), true);
+      expect(listEqual(pageBase.state.data, ["1", "2", "3"]), true);
+      expect(listEqual(res2.rawResponse?.data ?? [], []), true);
+      expect(listEqual(res2.data, ["1", "2", "3"]), true);
       expect(res2.error?.error, "myError");
-      expect(pageBase.page, 1);
-      expect(pageBase.total, 99);
-      expect(pageBase.isLastPage, true);
-      expect(res2.isSkipped, false);
-      expect(res2.isSuccess, false);
+      expect(pageBase.state.page, 1);
+      expect(pageBase.state.total, 99);
+      expect(pageBase.state.isLastPage, true);
       expect(count, 4);
       expect(listEqual(loadState, [LoadState.loading, LoadState.error]), true);
       expect(listEqual(error, [null, "myError"]), true);
+      expect(listEqual(error2, ["myError"]), true);
+      expect(data2.length, 1);
 
-      final res3 = await pageBase.fetch(() async {
+      final _ = await pageBase.fetch(() async {
         return TestResponse(
           total: 69,
           lastPage: true,
@@ -498,28 +589,28 @@ void main() {
         );
       });
 
-      expect(listEqual(pageBase.data, ["1", "2", "3", "4"]), true);
-      expect(pageBase.isLoading, false);
-      expect(pageBase.error, null);
-      expect(res3.isSkipped, false);
-      expect(res3.isSuccess, true);
-      expect(pageBase.page, 2);
-      expect(pageBase.total, 69);
-      expect(pageBase.isLastPage, true);
+      expect(listEqual(pageBase.state.data, ["1", "2", "3", "4"]), true);
+      expect(pageBase.state.isLoading, false);
+      expect(pageBase.state.error, null);
+      expect(pageBase.state.page, 2);
+      expect(pageBase.state.total, 69);
+      expect(pageBase.state.isLastPage, true);
       expect(count, 6);
+      expect(listEqual(error2, ["myError"]), true);
+      expect(data2.length, 2);
     });
 
     test('Reset', () async {
-      pageBase.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<dynamic> error = [];
       List<String> data = [];
-      pageBase.addListener(() {
+      pageBase.addStateChangeListener((state) {
         count++;
-        loadState.add(pageBase.loadState);
-        error.add(pageBase.error?.error);
-        data.addAll(pageBase.data);
+        loadState.add(state.loadState);
+        error.add(state.error?.error);
+        data.addAll(state.data);
       });
       final res = await pageBase.fetch(() async {
         return TestResponse(
@@ -528,36 +619,36 @@ void main() {
           data: ["1", "2", "3"],
         );
       });
-      expect(listEqual(pageBase.data, ["1", "2", "3"]), true);
+      expect(listEqual(pageBase.state.data, ["1", "2", "3"]), true);
       expect(res.error, null);
-      expect(pageBase.page, 1);
-      expect(pageBase.total, 99);
-      expect(pageBase.isLastPage, true);
+      expect(pageBase.state.page, 1);
+      expect(pageBase.state.total, 99);
+      expect(pageBase.state.isLastPage, true);
       loadState.clear();
       error.clear();
 
       pageBase.reset();
 
-      expect(listEqual(pageBase.data, []), true);
-      expect(pageBase.page, 0);
-      expect(pageBase.loadState, LoadState.success);
-      expect(pageBase.error, null);
-      expect(pageBase.total, 0);
-      expect(pageBase.isLastPage, false);
+      expect(listEqual(pageBase.state.data, []), true);
+      expect(pageBase.state.page, 0);
+      expect(pageBase.state.loadState, LoadState.success);
+      expect(pageBase.state.error, null);
+      expect(pageBase.state.total, 0);
+      expect(pageBase.state.isLastPage, false);
       expect(count, 3);
     });
 
     test('Reset ongoing request', () async {
-      pageBase.listeners.clear();
+      _clearListener();
       int count = 0;
       List<LoadState> loadState = [];
       List<dynamic> error = [];
       List<String> data = [];
-      pageBase.addListener(() {
+      pageBase.addStateChangeListener((state) {
         count++;
-        loadState.add(pageBase.loadState);
-        error.add(pageBase.error?.error);
-        data.addAll(pageBase.data);
+        loadState.add(state.loadState);
+        error.add(state.error?.error);
+        data.addAll(state.data);
       });
       final f1 = pageBase.fetch(() async {
         await Future.delayed(Duration(milliseconds: 100));
@@ -568,142 +659,32 @@ void main() {
         );
       });
       await Future.delayed(Duration(milliseconds: 30));
-      expect(listEqual(pageBase.data, []), true);
+      expect(listEqual(pageBase.state.data, []), true);
       pageBase.reset();
-      expect(listEqual(pageBase.data, []), true);
+      expect(listEqual(pageBase.state.data, []), true);
       final res = await f1;
-      expect(listEqual(pageBase.data, []), true);
+      expect(listEqual(pageBase.state.data, []), true);
       expect(res.error, null);
-      expect(pageBase.page, 0);
-      expect(pageBase.total, 0);
-      expect(pageBase.isLastPage, false);
+      expect(pageBase.state.page, 0);
+      expect(pageBase.state.total, 0);
+      expect(pageBase.state.isLastPage, false);
       expect(count, 2);
-      expect(res.isSkipped, true);
-      expect(res.isSuccess, false);
 
-      final res2 = await pageBase.fetch(() async {
+      final _ = await pageBase.fetch(() async {
         return TestResponse(
           total: 69,
           lastPage: true,
           data: ["1"],
         );
       });
-      expect(listEqual(pageBase.data, ["1"]), true);
-      expect(pageBase.page, 1);
-      expect(res2.isSuccess, true);
+      expect(listEqual(pageBase.state.data, ["1"]), true);
+      expect(pageBase.state.page, 1);
       expect(count, 4);
 
       pageBase.reset();
-      expect(listEqual(pageBase.data, []), true);
-      expect(pageBase.page, 0);
+      expect(listEqual(pageBase.state.data, []), true);
+      expect(pageBase.state.page, 0);
     });
-  });
-
-  group('Observer', () {
-    test('DataStore', () async {
-      store.listeners.clear();
-      store.observers.clear();
-      List<LoadResult> responses = [];
-      List<dynamic> extras = [];
-      store.addDataObserver((response, extra) {
-        responses.add(response);
-        extras.add(extra);
-      });
-      await store.fetch(() async {
-        return "1";
-      }, extra: "e1");
-      expect(responses.length, 1);
-      expect(extras.length, 1);
-      expect(responses[0].data, "1");
-      expect(extras[0], "e1");
-      await store.fetch(() async {
-        throw "error";
-      }, extra: "e2");
-      expect(responses.length, 2);
-      expect(extras.length, 2);
-      expect(responses[1].error?.error, "error");
-      expect(extras[1], "e2");
-      await store.fetch(() async {
-        return "2";
-      }, extra: "e3");
-      expect(responses.length, 3);
-      expect(extras.length, 3);
-      expect(responses[2].data, "2");
-      expect(extras[2], "e3");
-    });
-
-    test('DataPage', () async {
-      page.listeners.clear();
-      page.observers.clear();
-      List<LoadResultPage<dynamic, TestApiError>> responses = [];
-      List<dynamic> extras = [];
-      page.addDataObserver((response, extra) {
-        responses.add(response);
-        extras.add(extra);
-      });
-      await page.fetch(() async {
-        return ["1"];
-      }, extra: "e1");
-      expect(responses.length, 1);
-      expect(extras.length, 1);
-      expect(listEqual(responses[0].data ?? [], ["1"]), true);
-      expect(extras[0], "e1");
-      await page.fetch(() async {
-        throw "error";
-      }, extra: "e2");
-      expect(responses.length, 2);
-      expect(extras.length, 2);
-      expect(responses[1].error?.error, "error");
-      expect(extras[1], "e2");
-      await page.fetch(() async {
-        return ["2"];
-      }, extra: "e3");
-      expect(responses.length, 3);
-      expect(extras.length, 3);
-      expect(listEqual(responses[0].data ?? [], ["1", "2"]), true);
-      expect(extras[2], "e3");
-    });
-
-    test('DataPageBase', () async {
-      pageBase.listeners.clear();
-      pageBase.observers.clear();
-      List<LoadResultPageBase<String, TestResponse, TestApiError>> responses = [];
-      List<dynamic> extras = [];
-      pageBase.addDataObserver((response, extra) {
-        responses.add(response);
-        extras.add(extra);
-      });
-      await pageBase.fetch(() async {
-        return TestResponse(
-          total: 99,
-          lastPage: false,
-          data: ["1"],
-        );
-      }, extra: "e1");
-      expect(responses.length, 1);
-      expect(extras.length, 1);
-      expect(listEqual(responses[0].data ?? [], ["1"]), true);
-      expect(extras[0], "e1");
-      await pageBase.fetch(() async {
-        throw "error";
-      }, extra: "e2");
-      expect(responses.length, 2);
-      expect(extras.length, 2);
-      expect(responses[1].error?.error, "error");
-      expect(extras[1], "e2");
-      await pageBase.fetch(() async {
-        return TestResponse(
-          total: 99,
-          lastPage: false,
-          data: ["2"],
-        );
-      }, extra: "e3");
-      expect(responses.length, 3);
-      expect(extras.length, 3);
-      expect(listEqual(responses[0].data ?? [], ["1", "2"]), true);
-      expect(extras[2], "e3");
-    });
-
   });
 }
 

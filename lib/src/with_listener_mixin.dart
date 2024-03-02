@@ -1,20 +1,64 @@
 part of 'data_store.dart';
 
-typedef UpdateCallback = void Function();
+typedef StateChangeCallback<T> = void Function(T state);
 
-mixin WithListenerMixin {
-  final Set<UpdateCallback> _listeners = {};
+mixin WithListenerMixin<T> {
+  final Set<StateChangeCallback<T>> _stateChangeListeners = {};
+  final Set<StateChangeCallback<T>> _errorListeners = {};
 
-  Set<UpdateCallback> get listeners => _listeners;
+  Set<StateChangeCallback<T>> get stateChangeListeners => _stateChangeListeners;
+  Set<StateChangeCallback<T>> get errorListeners => _errorListeners;
 
-  void addListener(UpdateCallback listener) {
-    _listeners.add(listener);
+  void addStateChangeListener(StateChangeCallback<T> listener) {
+    _stateChangeListeners.add(listener);
   }
 
-  void notifyListeners() {
-    if (_listeners.isNotEmpty) {
-      for (var item in _listeners) {
-        item.call();
+  void addErrorListener(StateChangeCallback<T> listener) {
+    _errorListeners.add(listener);
+  }
+
+  void notifyStateChanged(T state) {
+    if (_stateChangeListeners.isNotEmpty) {
+      for (var item in _stateChangeListeners) {
+        try {
+          item.call(state);
+        } catch (e, st) {
+          print("$e, $st");
+        }
+      }
+    }
+  }
+
+  void notifyError(T state) {
+    if (_errorListeners.isNotEmpty) {
+      for (var item in _errorListeners) {
+        try {
+          item.call(state);
+        } catch (e, st) {
+          print("$e, $st");
+        }
+      }
+    }
+  }
+}
+
+mixin WithResponseMixin<T> {
+  final Set<StateChangeCallback<T>> _responseListeners = {};
+
+  Set<StateChangeCallback<T>> get responseListeners => _responseListeners;
+
+  void addResponseListener(StateChangeCallback<T> listener) {
+    _responseListeners.add(listener);
+  }
+
+  void notifyResponse(T response) {
+    if (_responseListeners.isNotEmpty) {
+      for (var item in _responseListeners) {
+        try {
+          item.call(response);
+        } catch (e, st) {
+          print("$e, $st");
+        }
       }
     }
   }
